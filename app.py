@@ -7,22 +7,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model import load_custom_cnn, load_resnet18
 
+# ── Page config ──────────────────────────────────────────────
 st.set_page_config(
     page_title="Ant vs Bee Classifier",
     page_icon="🐝",
     layout="centered"
 )
 
+# ── Constants ─────────────────────────────────────────────────
 CLASS_NAMES = ['Ant 🐜', 'Bee 🐝']
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# ── Load models ───────────────────────────────────────────────
 @st.cache_resource
 def load_models():
-    custom = load_custom_cnn("custom_cnn_model.pth", DEVICE)
-    resnet = load_resnet18("resnet18_model.pth",     DEVICE)
+    custom = load_custom_cnn(DEVICE)
+    resnet = load_resnet18(DEVICE)
     return custom, resnet
 
-def preprocess(image):
+# ── Image preprocessing ───────────────────────────────────────
+def preprocess(image: Image.Image):
     transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -32,6 +36,7 @@ def preprocess(image):
     ])
     return transform(image).unsqueeze(0).to(DEVICE)
 
+# ── Prediction ────────────────────────────────────────────────
 def predict(model, tensor):
     with torch.no_grad():
         outputs = model(tensor)
@@ -39,6 +44,7 @@ def predict(model, tensor):
         pred    = torch.argmax(probs).item()
     return pred, probs.cpu().numpy()
 
+# ── UI ────────────────────────────────────────────────────────
 st.title("🐜 Ant vs 🐝 Bee Classifier")
 st.markdown("Upload an image and both models will classify it!")
 st.divider()
@@ -61,11 +67,15 @@ if uploaded_file is not None:
     custom_pred, custom_probs = predict(custom_model, tensor)
     resnet_pred, resnet_probs = predict(resnet_model, tensor)
 
+    # ── Side by side results ──────────────────────────────────
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("🧠 Custom CNN")
-        st.metric(label="Prediction", value=CLASS_NAMES[custom_pred])
+        st.metric(
+            label="Prediction",
+            value=CLASS_NAMES[custom_pred]
+        )
         st.markdown("**Confidence:**")
         for i, cls in enumerate(CLASS_NAMES):
             st.progress(
@@ -75,7 +85,10 @@ if uploaded_file is not None:
 
     with col2:
         st.subheader("🏆 ResNet18")
-        st.metric(label="Prediction", value=CLASS_NAMES[resnet_pred])
+        st.metric(
+            label="Prediction",
+            value=CLASS_NAMES[resnet_pred]
+        )
         st.markdown("**Confidence:**")
         for i, cls in enumerate(CLASS_NAMES):
             st.progress(
@@ -85,11 +98,13 @@ if uploaded_file is not None:
 
     st.divider()
 
+    # ── Agreement check ───────────────────────────────────────
     if custom_pred == resnet_pred:
         st.success(f"✅ Both models agree: **{CLASS_NAMES[custom_pred]}**")
     else:
         st.warning("⚠️ Models disagree! ResNet18 is generally more reliable.")
 
+    # ── Confidence bar chart ──────────────────────────────────
     st.markdown("### Confidence Comparison")
     fig, ax = plt.subplots(figsize=(7, 3))
     x = np.arange(len(CLASS_NAMES))
